@@ -8,18 +8,15 @@ public class CameraControl : MonoBehaviour
     public float m_MinSize = 6.5f;                  // The smallest orthographic size the camera can be.
     [HideInInspector] public Transform[] m_Targets; // All the targets the camera needs to encompass.
 
-
     private Camera m_Camera;                        // Used for referencing the camera.
     private float m_ZoomSpeed;                      // Reference speed for the smooth damping of the orthographic size.
     private Vector3 m_MoveVelocity;                 // Reference velocity for the smooth damping of the position.
     private Vector3 m_DesiredPosition;              // The position the camera is moving towards.
 
-
     private void Awake()
     {
         m_Camera = GetComponentInChildren<Camera>();
     }
-
 
     private void FixedUpdate()
     {
@@ -30,7 +27,6 @@ public class CameraControl : MonoBehaviour
         Zoom();
     }
 
-
     private void Move()
     {
         // Find the average position of the targets.
@@ -39,7 +35,6 @@ public class CameraControl : MonoBehaviour
         // Smoothly transition to that position.
         transform.position = Vector3.SmoothDamp(transform.position, m_DesiredPosition, ref m_MoveVelocity, m_DampTime);
     }
-
 
     private void FindAveragePosition()
     {
@@ -69,14 +64,12 @@ public class CameraControl : MonoBehaviour
         m_DesiredPosition = averagePos;
     }
 
-
     private void Zoom()
     {
         // Find the required size based on the desired position and smoothly transition to that size.
         float requiredSize = FindRequiredSize();
         m_Camera.orthographicSize = Mathf.SmoothDamp(m_Camera.orthographicSize, requiredSize, ref m_ZoomSpeed, m_DampTime);
     }
-
 
     private float FindRequiredSize()
     {
@@ -114,7 +107,6 @@ public class CameraControl : MonoBehaviour
 
         return size;
     }
-
 
     public void SetStartPositionAndSize()
     {

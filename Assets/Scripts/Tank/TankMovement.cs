@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 
-public class TankMovement : MonoBehaviour
+using Photon.Pun;
+
+public abstract class TankMovement : MonoBehaviourPunCallbacks
 {
     public int m_PlayerNumber = 1;         
     public float m_Speed = 12f;            
@@ -10,11 +12,10 @@ public class TankMovement : MonoBehaviour
     public AudioClip m_EngineDriving;      
     public float m_PitchRange = 0.2f;
 
-    private string m_MovementAxisName;     
-    private string m_TurnAxisName;         
+    protected float m_MovementInputValue;
+    protected float m_TurnInputValue;
+
     private Rigidbody m_Rigidbody;         
-    private float m_MovementInputValue;    
-    private float m_TurnInputValue;        
     private float m_OriginalPitch;         
 
     private void Awake()
@@ -22,32 +23,26 @@ public class TankMovement : MonoBehaviour
         m_Rigidbody = GetComponent<Rigidbody>();
     }
 
-    private void OnEnable ()
+    public override void OnEnable ()
     {
         m_Rigidbody.isKinematic = false;
         m_MovementInputValue = 0f;
         m_TurnInputValue = 0f;
     }
 
-
-    private void OnDisable ()
+    public override void OnDisable ()
     {
         m_Rigidbody.isKinematic = true;
     }
 
     private void Start()
     {
-        m_MovementAxisName = "Vertical" + m_PlayerNumber;
-        m_TurnAxisName = "Horizontal" + m_PlayerNumber;
-
         m_OriginalPitch = m_MovementAudio.pitch;
     }
 
     private void Update()
     {
-        m_MovementInputValue = Input.GetAxis(m_MovementAxisName);
-        m_TurnInputValue = Input.GetAxis(m_TurnAxisName);
-
+        SetInputValues();
         EngineAudio();
     }
 
@@ -98,4 +93,6 @@ public class TankMovement : MonoBehaviour
         m_MovementAudio.pitch = Random.Range(m_OriginalPitch - m_PitchRange, m_OriginalPitch + m_PitchRange);
         m_MovementAudio.Play();
     }
+
+    protected abstract void SetInputValues();
 }

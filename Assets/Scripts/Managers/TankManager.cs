@@ -11,14 +11,15 @@ public class TankManager
     [HideInInspector] public GameObject m_Instance;          
     [HideInInspector] public int m_Wins;                     
 
-
     private TankMovement m_Movement;       
     private TankShooting m_Shooting;
     private GameObject m_CanvasGameObject;
 
-
-    public void Setup()
+    public void Setup(GameObject instance, int playerNumber)
     {
+        m_Instance = instance;
+        m_PlayerNumber = playerNumber;
+        
         m_Movement = m_Instance.GetComponent<TankMovement>();
         m_Shooting = m_Instance.GetComponent<TankShooting>();
         m_CanvasGameObject = m_Instance.GetComponentInChildren<Canvas>().gameObject;
@@ -36,7 +37,6 @@ public class TankManager
         }
     }
 
-
     public void DisableControl()
     {
         m_Movement.enabled = false;
@@ -44,7 +44,6 @@ public class TankManager
 
         m_CanvasGameObject.SetActive(false);
     }
-
 
     public void EnableControl()
     {
@@ -54,7 +53,6 @@ public class TankManager
         m_CanvasGameObject.SetActive(true);
     }
 
-
     public void Reset()
     {
         m_Instance.transform.position = m_SpawnPoint.position;
@@ -62,5 +60,10 @@ public class TankManager
 
         m_Instance.SetActive(false);
         m_Instance.SetActive(true);
+    }
+
+    public void Win()
+    {
+        m_Wins++;
     }
 }

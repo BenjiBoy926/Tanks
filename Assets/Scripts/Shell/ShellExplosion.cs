@@ -10,12 +10,10 @@ public class ShellExplosion : MonoBehaviour
     public float m_MaxLifeTime = 2f;                  
     public float m_ExplosionRadius = 5f;              
 
-
     private void Start()
     {
         Destroy(gameObject, m_MaxLifeTime);
     }
-
 
     private void OnTriggerEnter(Collider other)
     {

@@ -1,18 +1,22 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-public class GameManager : MonoBehaviour
+using Photon.Pun;
+
+public abstract class GameManager : MonoBehaviourPunCallbacks
 {
     public int m_NumRoundsToWin = 5;        
     public float m_StartDelay = 3f;         
-    public float m_EndDelay = 3f;           
+    public float m_EndDelay = 3f;
+    public GameObject m_TankPrefab;
     public CameraControl m_CameraControl;   
-    public Text m_MessageText;              
-    public GameObject m_TankPrefab;         
+    public Text m_MessageText;                      
     public TankManager[] m_Tanks;           
-
 
     private int m_RoundNumber;              
     private WaitForSeconds m_StartWait;     
@@ -21,44 +25,57 @@ public class GameManager : MonoBehaviour
     private TankManager m_RoundWinner;
     private TankManager m_GameWinner;
 
+    // SETUP
 
-    private void Start()
+    protected virtual void Start()
     {
         m_StartWait = new WaitForSeconds(m_StartDelay);
         m_EndWait = new WaitForSeconds(m_EndDelay);
         m_RoundEndWait = new WaitUntil(OneTankLeft);
+    }
 
-        SpawnAllTanks();
-        SetCameraTargets();
-
+    public void GameplayBegin()
+    {
+        SetupTanks();
+        SetupCameraTargets();
         StartCoroutine(GameLoop());
     }
-
-
-    private void SpawnAllTanks()
+    private void SetupTanks()
     {
-        for (int i = 0; i < m_Tanks.Length; i++)
+        GameObject[] instances = GetTankInstances();
+
+        // Check the lengths of the instances with the length of the tank managers
+        if(instances.Length != m_Tanks.Length)
         {
-            m_Tanks[i].m_Instance =
-                Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
-            m_Tanks[i].m_PlayerNumber = i + 1;
-            m_Tanks[i].Setup();
-        }
-    }
-
-
-    private void SetCameraTargets()
-    {
-        Transform[] targets = new Transform[m_Tanks.Length];
-
-        for (int i = 0; i < targets.Length; i++)
-        {
-            targets[i] = m_Tanks[i].m_Instance.transform;
+            Debug.LogWarning(m_Tanks.Length + " tank managers provided but only " + instances.Length + " tank instances found.  " +
+                "Feel free to play with the available tanks, but if you try to start the main game loop, you will get severe " +
+                "null reference exceptions");
         }
 
-        m_CameraControl.m_Targets = targets;
+        // Setup the tank managers
+        for(int i = 0; i < m_Tanks.Length; i++)
+        {
+            if(instances[i] != null)
+            {
+                m_Tanks[i].Setup(instances[i], i + 1);
+            }
+        }
+    }
+    private void SetupCameraTargets()
+    {
+        GameObject[] instances = GetTankInstances();
+        m_CameraControl.m_Targets = instances.Where(x =>
+        {
+            return x != null;
+        })
+        .Select(x =>
+        {
+            return x.transform;
+        })
+        .ToArray();
     }
 
+    // GAME LOOP
 
     private IEnumerator GameLoop()
     {
@@ -76,7 +93,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
     private IEnumerator RoundStarting()
     {
         ResetAllTanks();
@@ -90,7 +106,6 @@ public class GameManager : MonoBehaviour
         yield return m_StartWait;
     }
 
-
     private IEnumerator RoundPlaying()
     {
         EnableTankControl();
@@ -98,14 +113,13 @@ public class GameManager : MonoBehaviour
         yield return m_RoundEndWait;
     }
 
-
     private IEnumerator RoundEnding()
     {
         DisableTankControl();
 
         // Check for the round winner
         m_RoundWinner = GetRoundWinner();
-        if (m_RoundWinner != null) m_RoundWinner.m_Wins++;
+        if (m_RoundWinner != null) m_RoundWinner.Win();
 
         m_GameWinner = GetGameWinner();
         m_MessageText.text = EndMessage();
@@ -113,6 +127,7 @@ public class GameManager : MonoBehaviour
         yield return m_EndWait;
     }
 
+    // HELPERS
 
     private bool OneTankLeft()
     {
@@ -127,7 +142,6 @@ public class GameManager : MonoBehaviour
         return numTanksLeft <= 1;
     }
 
-
     private TankManager GetRoundWinner()
     {
         for (int i = 0; i < m_Tanks.Length; i++)
@@ -139,7 +153,6 @@ public class GameManager : MonoBehaviour
         return null;
     }
 
-
     private TankManager GetGameWinner()
     {
         for (int i = 0; i < m_Tanks.Length; i++)
@@ -150,7 +163,6 @@ public class GameManager : MonoBehaviour
 
         return null;
     }
-
 
     private string EndMessage()
     {
@@ -172,7 +184,6 @@ public class GameManager : MonoBehaviour
         return message;
     }
 
-
     private void ResetAllTanks()
     {
         for (int i = 0; i < m_Tanks.Length; i++)
@@ -180,7 +191,6 @@ public class GameManager : MonoBehaviour
             m_Tanks[i].Reset();
         }
     }
-
 
     private void EnableTankControl()
     {
@@ -190,7 +200,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
     private void DisableTankControl()
     {
         for (int i = 0; i < m_Tanks.Length; i++)
@@ -198,4 +207,6 @@ public class GameManager : MonoBehaviour
             m_Tanks[i].DisableControl();
         }
     }
+
+    protected abstract GameObject[] GetTankInstances();
 }
