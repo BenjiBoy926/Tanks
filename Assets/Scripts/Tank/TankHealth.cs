@@ -14,8 +14,8 @@ public class TankHealth : MonoBehaviourPunCallbacks
 
     private AudioSource m_ExplosionAudio;
     private ParticleSystem m_ExplosionParticles;
-    private float m_CurrentHealth;
-    private bool m_Dead;
+    protected float m_CurrentHealth;
+    protected bool m_Dead;
 
     private void Awake()
     {
