@@ -2,14 +2,15 @@
 using System.Linq;
 
 using UnityEngine;
+using UnityEngine.UI;
 
 using Photon.Pun;
 using Photon.Realtime;
 
-using ExitGames.Client.Photon;
-
-public class NetworkGameManager : GameManager
+public class NetworkGameManager : GameManager, IPunObservable
 {
+    public Text connectingText;   
+
     // PROPERTIES
     public static int localPlayerIndex
     {
@@ -30,13 +31,21 @@ public class NetworkGameManager : GameManager
         }
     }
 
+    public static bool gameplayReady
+    {
+        get
+        {
+            return PhotonNetwork.CurrentRoom.PlayerCount == NetworkLauncher.maxPlayersPerRoom;
+        }
+    }
+
     // PUBLIC INTERFACE
     public static int PlayerIndex(Player player)
     {
         return player.ActorNumber - 1;
     }
 
-    // CALLBACKS
+    // UNITY CALLBACKS
     protected override void Start()
     {
         base.Start();
@@ -52,11 +61,27 @@ public class NetworkGameManager : GameManager
         SetupCameraTargets();
 
         // If max players reached, start gameplay
-        if (PhotonNetwork.CurrentRoom.PlayerCount == NetworkLauncher.maxPlayersPerRoom)
+        if (gameplayReady)
         {
+            connectingText.text = "";
             StartCoroutine("WaitForGameToBegin");
         }
+        else
+        {
+            m_MessageText.text = "";
+            connectingText.text = "Waiting for an opponent to connect...";
+        }
     }
+    // If gameplay is not ready and the tank disables, reset it
+    private void Update()
+    {
+        if(!gameplayReady && !localInstance.activeInHierarchy)
+        {
+            m_Tanks[localPlayerIndex].Reset();
+        }
+    }
+
+    // PUN CALLBACKS
     // ENTERED/EXITED ROOM
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
@@ -76,6 +101,21 @@ public class NetworkGameManager : GameManager
             LoadArena();
         }
     }
+    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+    {
+        if (stream.IsWriting)
+        {
+            Debug.Log("Player #" + localPlayerIndex + " is sending their tank managers");
+            stream.SendNext(m_Tanks);
+        }
+        else
+        {
+            Debug.Log("Player #" + localPlayerIndex + " is receiving tank managers from " + PlayerIndex(info.Sender));
+            m_Tanks = (TankManager[])stream.ReceiveNext();
+        }
+    }
+
+    // OVERRIDES
     // Get tank instances by using the tag object
     protected override GameObject[] GetTankInstances()
     {

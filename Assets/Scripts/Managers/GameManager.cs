@@ -89,7 +89,7 @@ public abstract class GameManager : MonoBehaviourPunCallbacks
         }
         else
         {
-            StartCoroutine(GameLoop());
+            StartCoroutine("GameLoop");
         }
     }
 

@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 
-public class ShellExplosion : MonoBehaviour
+using Photon.Pun;
+
+public class ShellExplosion : MonoBehaviourPunCallbacks
 {
     public LayerMask m_TankMask;
     public ParticleSystem m_ExplosionParticles;       
@@ -10,12 +12,12 @@ public class ShellExplosion : MonoBehaviour
     public float m_MaxLifeTime = 2f;                  
     public float m_ExplosionRadius = 5f;              
 
-    private void Start()
+    protected virtual void Start()
     {
         Destroy(gameObject, m_MaxLifeTime);
     }
 
-    private void OnTriggerEnter(Collider other)
+    protected virtual void OnTriggerEnter(Collider other)
     {
         Collider[] tankColliders = Physics.OverlapSphere(transform.position, m_ExplosionRadius, m_TankMask);
 
@@ -41,7 +43,6 @@ public class ShellExplosion : MonoBehaviour
         m_ExplosionAudio.Play();
 
         Destroy(m_ExplosionParticles.gameObject, m_ExplosionParticles.main.duration);
-        Destroy(gameObject);
     }
 
 
