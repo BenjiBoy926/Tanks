@@ -61,7 +61,7 @@ public abstract class GameManager : MonoBehaviourPunCallbacks
             }
         }
     }
-    private void SetupCameraTargets()
+    protected void SetupCameraTargets()
     {
         GameObject[] instances = GetTankInstances();
         m_CameraControl.m_Targets = instances.Where(x =>

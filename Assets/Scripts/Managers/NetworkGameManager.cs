@@ -6,19 +6,50 @@ using UnityEngine;
 using Photon.Pun;
 using Photon.Realtime;
 
-public class NetworkGameManager : GameManager, IPunObservable
+using ExitGames.Client.Photon;
+
+public class NetworkGameManager : GameManager
 {
+    // PROPERTIES
+    public static int localPlayerIndex
+    {
+        get
+        {
+            return PhotonNetwork.LocalPlayer.ActorNumber - 1;
+        }
+    }
+    public static GameObject localInstance
+    {
+        get
+        {
+            return (GameObject)PhotonNetwork.LocalPlayer.TagObject;
+        }
+        private set
+        {
+            PhotonNetwork.LocalPlayer.TagObject = value;
+        }
+    }
+
+    // PUBLIC INTERFACE
+    public static int PlayerIndex(Player player)
+    {
+        return player.ActorNumber - 1;
+    }
+
     // CALLBACKS
     protected override void Start()
     {
         base.Start();
 
-        // If local player is not set up yet, set them up with a tank
-        if (PhotonNetwork.LocalPlayer.TagObject == null)
+        // If tank is not yet set up, set it up
+        if (localInstance == null)
         {
-            Debug.Log("Creating tank for the local player. Actor Number: " + PhotonNetwork.LocalPlayer.ActorNumber);
-            SetupNetworkPlayer(PhotonNetwork.LocalPlayer);
+            Debug.Log("Creating tank for the local player. Player #: " + PhotonNetwork.LocalPlayer.ActorNumber);
+            SetupLocalTankInstance();
         }
+
+        // Setup the targets for the camera to follow
+        SetupCameraTargets();
 
         // If max players reached, start gameplay
         if (PhotonNetwork.CurrentRoom.PlayerCount == NetworkLauncher.maxPlayersPerRoom)
@@ -26,6 +57,7 @@ public class NetworkGameManager : GameManager, IPunObservable
             StartCoroutine("WaitForGameToBegin");
         }
     }
+    // ENTERED/EXITED ROOM
     public override void OnPlayerEnteredRoom(Player newPlayer)
     {
         Debug.Log("Player entered the room!");
@@ -39,53 +71,26 @@ public class NetworkGameManager : GameManager, IPunObservable
     {
         Debug.Log("Player left the room!");
 
-        if(PhotonNetwork.IsMasterClient)
+        if (PhotonNetwork.IsMasterClient)
         {
             LoadArena();
         }
     }
-    // Send the current local player over the network
-    // When a local player is received, setup the tag object of that player
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if(stream.IsReading)
-        {
-            Player theirPlayer = (Player)stream.ReceiveNext();
-
-            Debug.Log("Actor #" + PhotonNetwork.LocalPlayer.ActorNumber + " is receiving information from Actor #" + theirPlayer.ActorNumber);
-
-            Player myVersionOfTheirPlayer = PhotonNetwork.PlayerList.First(x => x.ActorNumber == theirPlayer.ActorNumber);
-            myVersionOfTheirPlayer.TagObject = theirPlayer.TagObject;
-        }
-        else
-        {
-            Debug.Log("Actor #" + PhotonNetwork.LocalPlayer.ActorNumber + " is sending their information");
-            stream.SendNext(PhotonNetwork.LocalPlayer);
-        }
-    }
-    // Get tank instances by getting all player tag objects
+    // Get tank instances by using the tag object
     protected override GameObject[] GetTankInstances()
     {
-        Player[] playerList = PhotonNetwork.PlayerList;
-        GameObject[] tankInstances = new GameObject[playerList.Length];
-
-        for (int i = 0; i < playerList.Length; i++)
-        {
-            tankInstances[i] = (GameObject)playerList[i].TagObject;
-        }
-
-        return tankInstances;
+        return PhotonNetwork.PlayerList.Select(x => (GameObject)x.TagObject).ToArray();
     }
 
     // PRIVATE METHODS
     System.Collections.IEnumerator WaitForGameToBegin()
     {
-        Debug.Log("Waiting until all player tag objects have been received over the network");
+        Debug.Log("Waiting until all player tanks have been found");
 
         yield return new WaitUntil(() =>
         {
-            Player[] playerList = PhotonNetwork.PlayerList;
-            return playerList.Count(x => x.TagObject != null) == playerList.Length;
+            GameObject[] instances = GetTankInstances();
+            return instances.Count(x => x != null) == m_Tanks.Length;
         });
 
         Debug.Log("Client is ready to start the game!");
@@ -96,16 +101,60 @@ public class NetworkGameManager : GameManager, IPunObservable
         Debug.Log("Master client loading the arena");
         PhotonNetwork.LoadLevel("NetworkBattleground");
     }
-    private void SetupNetworkPlayer(Player player)
+    private void SetupLocalTankInstance()
     {
-        byte playerIndex = (byte)(PhotonNetwork.CurrentRoom.PlayerCount - 1);
-
         // Get the correct spawn point and instantiate the network player
-        Transform spawn = m_Tanks[playerIndex].m_SpawnPoint;
-        GameObject instance = PhotonNetwork.Instantiate(m_TankPrefab.name, spawn.position, spawn.rotation, 0);
-        DontDestroyOnLoad(instance);
+        Transform spawn = m_Tanks[localPlayerIndex].m_SpawnPoint;
+        localInstance = PhotonNetwork.Instantiate(m_TankPrefab.name, spawn.position, spawn.rotation, 0);
+        DontDestroyOnLoad(localInstance);
 
-        // Tag the player with the instance of the tank that they control
-        player.TagObject = instance;
+        // Setup the current tank instance
+        m_Tanks[localPlayerIndex].Setup(localInstance, localPlayerIndex + 1);
     }
+
+    // NOPE: this is called on the object that is actually instantiated!  It's not called on the object that DOES the instantiating
+    //public void OnPhotonInstantiate(PhotonMessageInfo info)
+    //{
+    //    Debug.Log("Player #" + (localPlayerIndex + 1) + " received instantiate message from Player #" + info.Sender.ActorNumber);
+    //    tankInstances[info.Sender.ActorNumber - 1] = (GameObject)info.Sender.TagObject;
+    //}
+
+    // NOPE: for some reason this function is not getting called
+    // This is only used to sync MY OWN DATA between clients - it can't be used to send my own information to other clients
+    //public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+    //{
+    //    // Send local player index with the corresponding instance
+    //    if (stream.IsWriting)
+    //    {
+    //        Debug.Log("Player #" + localPlayerIndex + " is sending their tank instance");
+    //        stream.SendNext(localPlayerIndex);
+    //        stream.SendNext(localInstance);
+    //    }
+    //    // Receive the other index and instance, and store it in the list
+    //    else
+    //    {
+    //        int otherIndex = (int)stream.ReceiveNext();
+    //        GameObject otherInstance = (GameObject)stream.ReceiveNext();
+
+    //        Debug.Log("Player #" + localPlayerIndex + 
+    //            " is receiving tank instance from Player #" + otherIndex);
+
+    //        tankInstances[otherIndex] = otherInstance;
+    //    }
+    //}
+
+    // Send this local player tank instance to all other clients who need a reference to it
+    //private void SynchronizeLocalTankInstance()
+    //{
+    //    photonView.RPC("RecieveTankInstance", RpcTarget.Others, localPlayerIndex, localInstance);
+    //}
+
+    // NOPE: this does not work because Photon cannot send a GameObject by RPC
+    // Receive an actor number of a player as well as the tank instance associated with it
+    //[PunRPC]
+    //public void RecieveTankInstance(int otherPlayerIndex, object otherInstance)
+    //{
+    //    Debug.Log("Player #" + localPlayerIndex + " recieved RPC call from Player #" + otherPlayerIndex);
+    //    tankInstances[otherPlayerIndex] = (GameObject)otherInstance;
+    //}
 }
